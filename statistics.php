@@ -18,7 +18,7 @@ $opts = [
 ];
 
 $ctx = stream_context_create( $opts );
-$response = file_get_contents( "https://api.github.com/repos/$repo/pulls?state=open", null, $ctx );
+$response = file_get_contents( "https://api.github.com/repos/$repo/pulls?state=open&per_page=1000", null, $ctx );
 $pullRequests = json_decode( $response, true );
 
 if ( !$pullRequests ) {
