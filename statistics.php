@@ -41,4 +41,4 @@ foreach ( $pullRequests as $pr ) {
 
 $average = round( $totalTime / $numRequests / 60 / 60, 1 );
 echo 'Average open time: ' . $average . " hours\n";
-$statsClient->gauge( $host, $average );
+$statsClient->gauge( 'github.prs.duration', $average );
