@@ -26,19 +26,50 @@ if ( !$pullRequests ) {
     die;
 }
 
-$numRequests = count( $pullRequests );
-echo $numRequests . " open pull requests\n";
-$totalTime = 0;
+echo count( $pullRequests ) . " open pull requests\n";
+
+/**
+ * @param array $pullRequests
+ * @return float
+ */
+function getAverageAge( array $pullRequests )
+{
+    $numRequests = count( $pullRequests );
+    $totalTime = 0;
+    foreach ( $pullRequests as $pr ) {
+        $time = DateTime::createFromFormat( 'Y-m-d\TH:i:s\Z', $pr['created_at'] );
+        $interval = ( new DateTime )->getTimestamp() - $time->getTimestamp();
+        $totalTime += $interval;
+    }
+    return round( $totalTime / $numRequests / 60 / 60, 1 );
+}
+
+/**
+ * @param array $pullRequests
+ * @param $ctx
+ * @return float
+ */
+function getReviewability( array $pullRequests, $ctx )
+{
+    $totalPrs = count( $pullRequests );
+    $totalLines = 0;
+    foreach ( $pullRequests as $pr ) {
+        $pr = json_decode( file_get_contents( $pr['url'], null, $ctx ), true );
+        $totalLines += $pr['additions'] + $pr['deletions'];
+    }
+    $reviewability = floatval( $totalLines ) / $totalPrs;
+    return $reviewability;
+}
 
 $connection = new \Domnikl\Statsd\Connection\UdpSocket( $host, 8125 );
 $statsClient = new \Domnikl\Statsd\Client( $connection, "" ) ;
-
-foreach ( $pullRequests as $pr ) {
-    $time = DateTime::createFromFormat( 'Y-m-d\TH:i:s\Z', $pr['created_at'] );
-    $interval = ( new DateTime )->getTimestamp() - $time->getTimestamp();
-    $totalTime += $interval;
+{
+    $average = getAverageAge( $pullRequests );
+    echo 'Average open time: ' . $average . " hours\n";
+    $statsClient->gauge( 'github.prs.duration', $average );
 }
-
-$average = round( $totalTime / $numRequests / 60 / 60, 1 );
-echo 'Average open time: ' . $average . " hours\n";
-$statsClient->gauge( 'github.prs.duration', $average );
+{
+    $average = getReviewability( $pullRequests, $ctx );
+    echo "Average reviewometer: ", $average, "\n";
+    $statsClient->gauge( 'github.prs.reviewability', $average );
+}
